@@ -1,22 +1,1384 @@
+
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <link rel="stylesheet" href="styles.css" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>PakePlus App</title>
-        <script type="module" src="/main.js" defer></script>
-    </head>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>条形码生成器</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --secondary-color: #3f37c9;
+            --accent-color: #4895ef;
+            --success-color: #4cc9f0;
+            --light-color: #f8f9fa;
+            --dark-color: #212529;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.12);
+            --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
+            --shadow-lg: 0 10px 15px rgba(0,0,0,0.1);
+            --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+            font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            min-height: 100vh;
+            line-height: 1.6;
+            color: var(--dark-color);
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin-top: 30px;
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .card {
+            border: none;
+            border-radius: 16px;
+            box-shadow: var(--shadow-lg);
+            overflow: hidden;
+            transition: var(--transition);
+            background-color: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+        }
+        
+        .card-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            font-size: 1.5rem;
+            font-weight: 600;
+            padding: 1.25rem 1.5rem;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .card-header:hover {
+            background: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
+        }
+        
+        .card-header::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(255, 255, 255, 0.2),
+                transparent
+            );
+            transition: 0.5s;
+        }
+        
+        .card-header:hover::after {
+            left: 100%;
+        }
+        
+        .card-header i {
+            transition: transform 0.3s ease;
+        }
+        
+        .card-header:hover i {
+            transform: rotate(360deg);
+        }
+        
+        .card-body {
+            padding: 2rem;
+        }
+        
+        .form-label {
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: var(--dark-color);
+        }
+        
+        .form-control, .form-select {
+            border-radius: 10px;
+            padding: 12px 15px;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            transition: var(--transition);
+            background-color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 0.25rem rgba(67, 97, 238, 0.15);
+            background-color: white;
+        }
+        
+        textarea.form-control {
+            min-height: 120px;
+            resize: vertical;
+        }
+        
+        .btn {
+            border-radius: 10px;
+            padding: 12px 24px;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+            border: none;
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+            color: white !important;
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, var(--success-color), var(--accent-color));
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: linear-gradient(135deg, var(--accent-color), var(--success-color));
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+            color: white !important;
+        }
+        
+        .btn-info {
+            background: linear-gradient(135deg, #4cc9f0, #4895ef);
+            color: white;
+        }
+        
+        .btn-info:hover {
+            background: linear-gradient(135deg, #4895ef, #4cc9f0);
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+            color: white !important;
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .btn i {
+            margin-right: 8px;
+            transition: transform 0.3s ease;
+        }
+        
+        .btn:hover i {
+            transform: translateX(3px);
+        }
+        
+        #barcode-preview {
+            margin-top: 30px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .barcode-item {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: var(--shadow-sm);
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .barcode-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(to bottom, var(--primary-color), var(--accent-color));
+            transition: var(--transition);
+        }
+        
+        .barcode-item:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-md);
+        }
+        
+        .barcode-item:hover::before {
+            width: 6px;
+        }
+        
+        .barcode-item svg {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+        
+        .barcode-item .folder-name {
+            font-weight: bold;
+            color: var(--primary-color);
+            margin-bottom: 8px;
+            text-align: center;
+        }
+        
+        .barcode-item:hover .folder-name {
+            color: var(--primary-color) !important;
+        }
+        
+        .loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 30px;
+            display: none;
+        }
+        
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+            border-width: 0.25em;
+            color: var(--accent-color);
+        }
+        
+        .progress {
+            height: 10px;
+            border-radius: 5px;
+            background-color: rgba(0, 0, 0, 0.05);
+            margin-top: 20px;
+            display: none;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+            border-radius: 5px;
+            transition: width 0.6s ease;
+            position: relative;
+            font-size: 7px;
+            overflow: hidden;
+        }
+        
+        .progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(
+                90deg,
+                rgba(255, 255, 255, 0) 0%,
+                rgba(255, 255, 255, 0.3) 50%,
+                rgba(255, 255, 255, 0) 100%
+            );
+            animation: progressShine 2s infinite;
+        }
+        
+        @keyframes progressShine {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        
+        .weight-stats-container {
+            margin-top: 30px;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: var(--shadow-sm);
+            display: none;
+        }
+        
+        .weight-stats-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .weight-stats-title i {
+            margin-right: 10px;
+        }
+        
+        .weight-stats-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .weight-stats-table th, 
+        .weight-stats-table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+        
+        .weight-stats-table th {
+            font-weight: 500;
+            color: var(--dark-color);
+        }
+        
+        .weight-stats-table tr:hover {
+            background-color: rgba(67, 97, 238, 0.05);
+        }
+        
+        .weight-stats-total {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        
+        .file-input {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        .file-input input[type="file"] {
+            opacity: 0;
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            cursor: pointer;
+        }
+        
+        .file-input-label {
+            display: block;
+            padding: 20px;
+            border: 2px dashed rgba(67, 97, 238, 0.3);
+            border-radius: 12px;
+            text-align: center;
+            transition: var(--transition);
+            background-color: rgba(67, 97, 238, 0.05);
+        }
+        
+        .file-input-label:hover {
+            border-color: var(--accent-color);
+            background-color: rgba(67, 97, 238, 0.1);
+        }
+        
+        .file-input-label i {
+            font-size: 28px;
+            color: var(--primary-color);
+            margin-bottom: 10px;
+            display: block;
+        }
+        
+        .file-name {
+            margin-top: 10px;
+            font-size: 14px;
+            color: var(--primary-color);
+            font-weight: 500;
+        }
+        
+        .form-check {
+            margin-bottom: 1rem;
+            padding-left: 2.5rem;
+        }
+        
+        .form-check-input {
+            width: 1.25em;
+            height: 1.25em;
+            margin-left: -2.5rem;
+            margin-top: 0.25em;
+            border-radius: 0.25em;
+            border: 1px solid rgba(0, 0, 0, 0.25);
+            transition: var(--transition);
+        }
+        
+        .form-check-input:checked {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        
+        .form-check-input:focus {
+            box-shadow: 0 0 0 0.25rem rgba(67, 97, 238, 0.25);
+        }
+        
+        .form-check-label {
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .import-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .import-buttons .btn {
+            flex: 1;
+        }
+        
+        /* 修改后的导出选项容器样式 */
+        .export-switches {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 1rem;
+            flex-wrap: nowrap;
+            padding-bottom: 5px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
 
-    <body>
-        <main class="container">
-            <h1>Welcome to PakePlus</h1>
+        /* 修改后的开关容器样式 */
+        .switch-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0;
+            flex-shrink: 0;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 20px;
+            padding: 6px 12px;
+            box-shadow: var(--shadow-sm);
+            transition: var(--transition);
+            white-space: nowrap;
+            min-width: max-content;
+        }
 
-            <form class="row" id="greet-form">
-                <input id="greet-input" placeholder="Enter a name..." />
-                <button type="submit">Greet</button>
-            </form>
-            <p id="greet-msg"></p>
-        </main>
-    </body>
+        .switch-container:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-1px);
+        }
+
+        .switch-label {
+            margin-right: 8px;
+            font-weight: 500;
+            color: var(--dark-color);
+            white-space: nowrap;
+            font-size: 0.9rem;
+        }
+
+        /* 更精致的开关样式 */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #e9ecef;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        input:checked + .slider {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        .slider-text {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 10px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 1px 1px rgba(0,0,0,0.1);
+        }
+
+        .slider-text.on {
+            left: 8px;
+            display: none;
+        }
+
+        .slider-text.off {
+            right: 8px;
+        }
+
+        input:checked + .slider .slider-text.on {
+            display: block;
+        }
+
+        input:checked + .slider .slider-text.off {
+            display: none;
+        }
+        
+        /* 自定义重量输入样式 */
+        .custom-weight-input {
+            display: none;
+            margin-top: 10px;
+        }
+        
+        .custom-weight-input.active {
+            display: block;
+        }
+        
+        /* 重量输入容器 */
+        .weight-inputs-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                margin-top: 20px;
+                padding: 0 15px;
+            }
+            
+            .card-header {
+                font-size: 1.25rem;
+                padding: 1rem;
+            }
+            
+            .card-body {
+                padding: 1.5rem;
+            }
+            
+            #barcode-preview {
+                grid-template-columns: 1fr;
+            }
+            
+            .btn {
+                width: 100%;
+                margin-bottom: 10px;
+            }
+            
+            .d-md-flex {
+                flex-direction: column;
+            }
+            
+            .import-buttons {
+                flex-direction: column;
+            }
+            
+            .export-switches {
+                gap: 8px;
+                padding-bottom: 8px;
+            }
+            
+            .switch-container {
+                padding: 5px 10px;
+                border-radius: 18px;
+            }
+            
+            .switch-label {
+                font-size: 0.8rem;
+                margin-right: 6px;
+            }
+            
+            .switch {
+                width: 42px;
+                height: 20px;
+            }
+            
+            .slider:before {
+                height: 16px;
+                width: 16px;
+            }
+            
+            input:checked + .slider:before {
+                transform: translateX(22px);
+            }
+            
+            .slider-text {
+                font-size: 8px;
+            }
+            
+            .weight-inputs-container {
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+            
+            .custom-weight-input {
+                flex: 1 0 100%;
+                margin-top: 5px;
+            }
+            
+            .weight-stats-table th, 
+            .weight-stats-table td {
+                padding: 8px 5px;
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="card-header text-center" onclick="navigateToBarcodePage()">
+                <i class="fas fa-barcode"></i> 条形码生成器
+            </div>
+            <div class="card-body">
+                <div class="file-input">
+                    <label for="file-input" class="form-label">上传表格文件 (.csv, .xlsx 或 .xls)</label>
+                    <label class="file-input-label">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <span>点击或拖拽文件到此处</span>
+                        <div class="file-name" id="file-name">未选择文件</div>
+                    </label>
+                    <input type="file" id="file-input" class="form-control" accept=".csv, .xlsx, .xls" />
+                    <div class="import-buttons">
+                        <button class="btn btn-primary" onclick="importSingleColumn()"><i class="fas fa-columns"></i> 单列表格导入</button>
+                        <button class="btn btn-info" onclick="importMultiColumn()"><i class="fas fa-table"></i> 多列表格导入</button>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="barcode-data" class="form-label">输入条形码数据（每行一个，格式：条形码,文件夹名）</label>
+                    <textarea id="barcode-data" class="form-control" rows="4" placeholder="例如：123456,文件夹1"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label for="weight-option" class="form-label">选择重量处理方式</label>
+                    <select id="weight-option" class="form-select" onchange="updateWeightOption()">
+                        <option value="none">普通模式</option>
+                        <option value="addFixed">增加固定值</option>
+                        <option value="addPercentage">增加百分比</option>
+                        <option value="custom">自定义计算</option>
+                    </select>
+                    
+                    <div class="weight-inputs-container">
+                        <!-- 固定值输入 -->
+                        <div id="fixed-weight-input" class="custom-weight-input">
+                            <input type="number" id="fixed-weight-value" class="form-control" step="0.01" min="0" placeholder="输入要增加的固定值 (单位: kg)" onchange="updateWeightStats()">
+                        </div>
+                        
+                        <!-- 百分比输入 -->
+                        <div id="percentage-weight-input" class="custom-weight-input">
+                            <input type="number" id="percentage-weight-value" class="form-control" step="0.1" min="0" placeholder="输入要增加的百分比 (单位: %)" onchange="updateWeightStats()">
+                        </div>
+                        
+                        <!-- 自定义计算输入 -->
+                        <div id="custom-weight-input" class="custom-weight-input">
+                            <input type="text" id="custom-weight-formula" class="form-control" placeholder="输入计算公式 (使用w表示原始重量, 例如: w*1.1 + 0.5)" onchange="updateWeightStats()">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="export-switches">
+                    <div class="switch-container">
+                        <span class="switch-label">统计:</span>
+                        <label class="switch">
+                            <input type="checkbox" id="show-weight-stats">
+                            <span class="slider">
+                                <span class="slider-text on">ON</span>
+                                <span class="slider-text off">OFF</span>
+                            </span>
+                        </label>
+                    </div>
+                    <div class="switch-container">
+                        <span class="switch-label">Excel:</span>
+                        <label class="switch">
+                            <input type="checkbox" id="export-excel">
+                            <span class="slider">
+                                <span class="slider-text on">ON</span>
+                                <span class="slider-text off">OFF</span>
+                            </span>
+                        </label>
+                    </div>
+                    <div class="switch-container">
+                        <span class="switch-label">TXT:</span>
+                        <label class="switch">
+                            <input type="checkbox" id="export-txt">
+                            <span class="slider">
+                                <span class="slider-text on">ON</span>
+                                <span class="slider-text off">OFF</span>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                    <button class="btn btn-primary" onclick="generateBarcode()"><i class="fas fa-cogs"></i> 生成条形码</button>
+                    <button class="btn btn-success" onclick="exportBarcodes()"><i class="fas fa-download"></i> 批量导出PNG</button>
+                </div>
+                <div class="loading" id="loading">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2">正在处理，请稍候...</p>
+                </div>
+                <div class="progress" id="progress-bar">
+                    <div class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+                
+                <div class="weight-stats-container" id="weight-stats-container">
+                    <div class="weight-stats-title">
+                        <span><i class="fas fa-weight-hanging"></i> 重量统计</span>
+                        <span id="weight-stats-total">总计: 0</span>
+                    </div>
+                    <table class="weight-stats-table">
+                        <thead>
+                            <tr>
+                                <th>文件夹名称</th>
+                                <th>总重量</th>
+                            </tr>
+                        </thead>
+                        <tbody id="weight-stats-body">
+                            <!-- 统计数据将在这里动态生成 -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div id="barcode-preview"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let barcodes = [], fileName = "barcodes";
+        let lastProgressUpdate = 0;
+        let weightStats = {};
+
+        // 格式化数字显示，去除多余的0
+        function formatNumber(num) {
+            if (Number.isInteger(num)) {
+                return num.toString();
+            }
+            // 转换为字符串并去除末尾的0
+            return num.toString().replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+        }
+
+        // 文件输入变化时更新文件名显示
+        document.getElementById('file-input').addEventListener('change', function(e) {
+            const fileName = e.target.files[0] ? e.target.files[0].name : '未选择文件';
+            document.getElementById('file-name').textContent = fileName;
+        });
+
+        function showLoading() { 
+            document.getElementById('loading').style.display = 'flex'; 
+            document.getElementById('progress-bar').style.display = 'block';
+        }
+        
+        function hideLoading() { 
+            document.getElementById('loading').style.display = 'none'; 
+            document.getElementById('progress-bar').style.display = 'none';
+        }
+        
+        function clearData() {
+            document.getElementById('barcode-data').value = '';
+            document.getElementById('barcode-preview').innerHTML = '';
+            document.getElementById('file-name').textContent = '未选择文件';
+            document.getElementById('file-input').value = '';
+            barcodes = [];
+            weightStats = {};
+            updateWeightStatsDisplay();
+        }
+
+        function updateProgress(percentage) {
+            const now = Date.now();
+            // 限制更新频率，每100ms最多更新一次
+            if (now - lastProgressUpdate > 100 || percentage >= 100) {
+                const progressBar = document.getElementById('progress-bar');
+                const progressBarInner = progressBar.querySelector('.progress-bar');
+                const roundedPercentage = Math.round(percentage);
+                progressBarInner.style.width = `${roundedPercentage}%`;
+                progressBarInner.setAttribute('aria-valuenow', roundedPercentage);
+                progressBarInner.textContent = `${roundedPercentage}%`;
+                lastProgressUpdate = now;
+            }
+
+            if (percentage >= 100) {
+                setTimeout(() => {
+                    document.getElementById('progress-bar').style.display = 'none';
+                }, 500);
+            }
+        }
+
+        // 更新重量选项显示
+        function updateWeightOption() {
+            const weightOption = document.getElementById('weight-option').value;
+            
+            // 隐藏所有自定义输入
+            document.getElementById('fixed-weight-input').classList.remove('active');
+            document.getElementById('percentage-weight-input').classList.remove('active');
+            document.getElementById('custom-weight-input').classList.remove('active');
+            
+            // 显示选中的输入
+            if (weightOption === 'addFixed') {
+                document.getElementById('fixed-weight-input').classList.add('active');
+            } else if (weightOption === 'addPercentage') {
+                document.getElementById('percentage-weight-input').classList.add('active');
+            } else if (weightOption === 'custom') {
+                document.getElementById('custom-weight-input').classList.add('active');
+            }
+            
+            // 更新统计显示
+            if (barcodes.length > 0) {
+                updateWeightStatsDisplay();
+            }
+        }
+
+        // 计算重量统计
+        function calculateWeightStats(barcodes, weightOption) {
+            const stats = {};
+            
+            barcodes.forEach(barcode => {
+                const folder = barcode.folder;
+                if (!folder) return;
+                
+                // 匹配文件夹名中的数字部分（包括小数点）
+                const match = folder.match(/(\d+\.?\d*)/);
+                if (match) {
+                    const originalWeightStr = match[1];
+                    const originalWeight = parseFloat(originalWeightStr);
+                    if (!isNaN(originalWeight)) {
+                        if (!stats[folder]) {
+                            stats[folder] = 0;
+                        }
+                        
+                        let adjustedWeight = originalWeight;
+                        
+                        // 根据选择的重量处理方式调整重量
+                        switch(weightOption) {
+                            case 'addFixed':
+                                const fixedValue = parseFloat(document.getElementById('fixed-weight-value').value) || 0;
+                                adjustedWeight += fixedValue;
+                                break;
+                            case 'addPercentage':
+                                const percentage = parseFloat(document.getElementById('percentage-weight-value').value) || 0;
+                                adjustedWeight *= (1 + percentage / 100);
+                                break;
+                            case 'custom':
+                                try {
+                                    const formula = document.getElementById('custom-weight-formula').value;
+                                    if (formula) {
+                                        const func = new Function('w', `return ${formula}`);
+                                        adjustedWeight = func(originalWeight);
+                                    }
+                                } catch (e) {
+                                    console.error("自定义公式错误:", e);
+                                }
+                                break;
+                            default:
+                                // 普通模式不做调整
+                                break;
+                        }
+                        
+                        stats[folder] += adjustedWeight;
+                    }
+                }
+            });
+            
+            return stats;
+        }
+
+        // 更新重量统计显示
+        function updateWeightStatsDisplay() {
+            const showStats = document.getElementById('show-weight-stats').checked;
+            const weightOption = document.getElementById('weight-option').value;
+            weightStats = calculateWeightStats(barcodes, weightOption);
+            
+            const container = document.getElementById('weight-stats-container');
+            const tbody = document.getElementById('weight-stats-body');
+            const totalElement = document.getElementById('weight-stats-total');
+            
+            if (Object.keys(weightStats).length === 0 || !showStats) {
+                container.style.display = 'none';
+                return;
+            }
+            
+            container.style.display = 'block';
+            tbody.innerHTML = '';
+            
+            let totalWeight = 0;
+            
+            for (const folder in weightStats) {
+                const weight = weightStats[folder];
+                totalWeight += weight;
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${folder}</td>
+                    <td>${formatNumber(weight)}</td>
+                `;
+                tbody.appendChild(row);
+            }
+            
+            // 添加总计行
+            const totalRow = document.createElement('tr');
+            totalRow.className = 'weight-stats-total';
+            totalRow.innerHTML = `
+                <td>总计</td>
+                <td>${formatNumber(totalWeight)}</td>
+            `;
+            tbody.appendChild(totalRow);
+            
+            totalElement.textContent = `总计: ${formatNumber(totalWeight)}`;
+        }
+
+        // 当重量处理方式改变时更新统计
+        function updateWeightStats() {
+            if (barcodes.length > 0) {
+                updateWeightStatsDisplay();
+            }
+        }
+
+        // 修改文件夹名中的重量数值
+        function modifyFolderName(folder, weightOption) {
+            if (!folder) return folder;
+            
+            // 匹配文件夹名中的数字部分（包括小数点）
+            const match = folder.match(/(\d+\.?\d*)/);
+            if (match) {
+                const originalWeightStr = match[1];
+                const originalWeight = parseFloat(originalWeightStr);
+                if (!isNaN(originalWeight)) {
+                    let adjustedWeight = originalWeight;
+                    
+                    // 根据选择的重量处理方式调整重量
+                    switch(weightOption) {
+                        case 'addFixed':
+                            const fixedValue = parseFloat(document.getElementById('fixed-weight-value').value) || 0;
+                            adjustedWeight += fixedValue;
+                            break;
+                        case 'addPercentage':
+                            const percentage = parseFloat(document.getElementById('percentage-weight-value').value) || 0;
+                            adjustedWeight *= (1 + percentage / 100);
+                            break;
+                        case 'custom':
+                            try {
+                                const formula = document.getElementById('custom-weight-formula').value;
+                                if (formula) {
+                                    const func = new Function('w', `return ${formula}`);
+                                    adjustedWeight = func(originalWeight);
+                                }
+                            } catch (e) {
+                                console.error("自定义公式错误:", e);
+                            }
+                            break;
+                        default:
+                            // 普通模式不做调整
+                            break;
+                    }
+                    
+                    // 替换原始重量为调整后的重量
+                    return folder.replace(originalWeightStr, formatNumber(adjustedWeight));
+                }
+            }
+            
+            return folder;
+        }
+
+        // 单列表格导入
+        function importSingleColumn() {
+            const file = document.getElementById('file-input').files[0];
+            if (!file) { 
+                alert("请选择一个文件！"); 
+                return; 
+            }
+            fileName = file.name.replace(/\.[^/.]+$/, "");
+            showLoading();
+            updateProgress(0);
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+                    // 将数据格式化为文本，第一列为条形码数据，第二列为文件夹名称
+                    const textData = jsonData
+                        .filter(row => row && row[0] && row[0].toString().trim())
+                        .map(row => `${row[0].toString().trim()},${(row[1] || '').toString().trim()}`)
+                        .join('\n');
+                    
+                    document.getElementById('barcode-data').value = textData;
+                } catch (error) {
+                    console.error("导入错误:", error);
+                    alert("文件导入失败，请检查文件格式！");
+                } finally {
+                    setTimeout(hideLoading, 500);
+                }
+            };
+            reader.onerror = function() {
+                alert("文件读取失败！");
+                hideLoading();
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // 多列表格导入
+        function importMultiColumn() {
+            const file = document.getElementById('file-input').files[0];
+            if (!file) { 
+                alert("请选择一个文件！"); 
+                return; 
+            }
+            fileName = file.name.replace(/\.[^/.]+$/, "");
+            showLoading();
+            updateProgress(0);
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+                    // 获取每列的第一行作为文件夹名
+                    const folderNames = jsonData[0] || [];
+                    const barcodeData = [];
+
+                    // 遍历每列，将数据放入对应的文件夹中
+                    for (let col = 0; col < folderNames.length; col++) {
+                        const folderName = folderNames[col]?.toString().trim() || `文件夹${col+1}`;
+                        const columnData = jsonData
+                            .slice(1)
+                            .map(row => row[col])
+                            .filter(cell => cell !== undefined && cell !== null && cell.toString().trim());
+                        
+                        if (columnData.length > 0) {
+                            barcodeData.push({ folder: folderName, data: columnData });
+                        }
+
+                        // 更新进度
+                        const progress = Math.floor(((col + 1) / folderNames.length) * 100);
+                        updateProgress(progress);
+                    }
+
+                    // 将数据格式化为文本，使用逗号分隔
+                    const textData = barcodeData
+                        .map(item => item.data.map(barcode => `${barcode.toString().trim()},${item.folder}`))
+                        .flat()
+                        .join('\n');
+                    
+                    document.getElementById('barcode-data').value = textData;
+                } catch (error) {
+                    console.error("导入错误:", error);
+                    alert("文件导入失败，请检查文件格式！");
+                } finally {
+                    setTimeout(hideLoading, 500);
+                }
+            };
+            reader.onerror = function() {
+                alert("文件读取失败！");
+                hideLoading();
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function generateBarcode() {
+            const inputData = document.getElementById('barcode-data').value;
+            if (!inputData.trim()) {
+                alert("请输入条形码数据！");
+                return;
+            }
+            
+            const lines = inputData.split('\n').filter(line => line.trim());
+            const preview = document.getElementById('barcode-preview');
+            preview.innerHTML = '';
+            barcodes = [];
+            showLoading();
+            updateProgress(0);
+
+            // 使用setTimeout分批次处理，避免阻塞UI
+            let processed = 0;
+            const batchSize = 10;
+            const total = lines.length;
+
+            function processBatch(start) {
+                const end = Math.min(start + batchSize, total);
+                for (let i = start; i < end; i++) {
+                    const line = lines[i];
+                    const parts = line.split(',');
+                    const barcodeData = (parts[0] || '').toString().trim();
+                    const folder = (parts[1] || '').toString().trim();
+                    const barcodeDataUpper = barcodeData.toUpperCase();
+                    
+                    if (!barcodeDataUpper) continue;
+                    
+                    const container = document.createElement('div');
+                    container.className = 'barcode-item';
+                    
+                    if (folder) {
+                        const folderEl = document.createElement('div');
+                        folderEl.className = 'folder-name';
+                        folderEl.textContent = folder;
+                        container.appendChild(folderEl);
+                    }
+                    
+                    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    svg.setAttribute('id', `barcode-${i}`);
+                    
+                    container.appendChild(svg);
+                    preview.appendChild(container);
+                    
+                    try {
+                        JsBarcode(svg, barcodeDataUpper, { 
+                            format: "CODE128", 
+                            displayValue: true,
+                            fontSize: 16, 
+                            lineColor: "#000", 
+                            width: 2, 
+                            height: 100 
+                        });
+                        
+                        barcodes.push({ 
+                            folder, 
+                            svg: new XMLSerializer().serializeToString(svg), 
+                            barcodeData: barcodeDataUpper 
+                        });
+                    } catch (error) {
+                        console.error("生成条形码错误:", error);
+                        container.innerHTML = `<div class="text-danger">无法生成条形码: ${barcodeData}</div>`;
+                    }
+
+                    processed++;
+                    const progress = Math.floor((processed / total) * 100);
+                    updateProgress(progress);
+                }
+
+                if (end < total) {
+                    setTimeout(() => processBatch(end), 0);
+                } else {
+                    setTimeout(() => {
+                        hideLoading();
+                        updateWeightStatsDisplay(); // 生成完成后更新统计显示
+                    }, 500);
+                }
+            }
+
+            processBatch(0);
+        }
+
+        function svgToPng(svgString) {
+            return new Promise((resolve) => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const img = new Image();
+                
+                // 使用更高效的SVG渲染方式
+                const svgBlob = new Blob([svgString], {type: 'image/svg+xml;charset=utf-8'});
+                const url = URL.createObjectURL(svgBlob);
+                
+                img.onload = () => {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+                    canvas.toBlob((blob) => {
+                        URL.revokeObjectURL(url); // 及时释放内存
+                        resolve(blob);
+                    }, 'image/png');
+                };
+                
+                img.onerror = () => {
+                    URL.revokeObjectURL(url);
+                    console.error("SVG转PNG失败");
+                    resolve(null);
+                };
+                
+                img.src = url;
+            });
+        }
+
+        // 生成重量统计的Excel文件
+        function generateWeightStatsExcel(barcodes, weightOption) {
+            // 使用已经计算好的weightStats
+            const data = [["文件夹名称", "总重量"]];
+            for (const folder in weightStats) {
+                data.push([folder, weightStats[folder]]);
+            }
+            
+            // 创建工作表
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            
+            // 创建工作簿
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "重量统计");
+            
+            // 生成Excel文件
+            return XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        }
+
+        // 生成重量统计的TXT文件
+        function generateWeightStatsTxt(barcodes, weightOption) {
+            // 使用已经计算好的weightStats
+            let txtContent = "文件夹名称\t总重量\n";
+            for (const folder in weightStats) {
+                txtContent += `${folder}\t${formatNumber(weightStats[folder])}\n`;
+            }
+            
+            return new Blob([txtContent], { type: 'text/plain;charset=utf-8' });
+        }
+
+        async function exportBarcodes() {
+            if (!barcodes.length) { 
+                alert("请先生成条形码！"); 
+                return; 
+            }
+            
+            showLoading();
+            updateProgress(0);
+
+            const zip = new JSZip();
+            const totalBarcodes = barcodes.length;
+            const weightOption = document.getElementById('weight-option').value;
+            const exportExcel = document.getElementById('export-excel').checked;
+            const exportTxt = document.getElementById('export-txt').checked;
+
+            // 根据选择导出统计文件
+            if (exportExcel) {
+                try {
+                    const weightStatsXLSX = generateWeightStatsExcel(barcodes, weightOption);
+                    zip.file("重量统计.xlsx", weightStatsXLSX);
+                } catch (error) {
+                    console.error("生成Excel统计文件错误:", error);
+                }
+            }
+            
+            if (exportTxt) {
+                try {
+                    const weightStatsTxt = generateWeightStatsTxt(barcodes, weightOption);
+                    zip.file("重量统计.txt", weightStatsTxt);
+                } catch (error) {
+                    console.error("生成TXT统计文件错误:", error);
+                }
+            }
+
+            // 批量处理，每批处理20个文件
+            const batchSize = 20;
+            const totalBatches = Math.ceil(totalBarcodes / batchSize);
+            
+            for (let batch = 0; batch < totalBatches; batch++) {
+                const start = batch * batchSize;
+                const end = Math.min(start + batchSize, totalBarcodes);
+                
+                // 准备当前批次的导出任务
+                const batchPromises = [];
+                for (let i = start; i < end; i++) {
+                    const barcode = barcodes[i];
+                    const folder = modifyFolderName(barcode.folder, weightOption);
+                    const barcodeData = barcode.barcodeData;
+                    const svgString = barcode.svg;
+
+                    batchPromises.push(
+                        (async () => {
+                            try {
+                                let currentFolder = zip;
+                                if (folder) {
+                                    currentFolder = currentFolder.folder(folder) || currentFolder;
+                                }
+
+                                const pngBlob = await svgToPng(svgString);
+                                if (pngBlob) {
+                                    currentFolder.file(`${barcodeData}.png`, pngBlob);
+                                }
+
+                                // 更新进度
+                                const progress = Math.floor(((i + 1) / totalBarcodes) * 100);
+                                updateProgress(progress);
+                            } catch (error) {
+                                console.error(`导出错误 ${barcodeData}:`, error);
+                            }
+                        })()
+                    );
+                }
+
+                // 并行处理当前批次
+                try {
+                    await Promise.all(batchPromises);
+                } catch (error) {
+                    console.error("批量处理错误:", error);
+                }
+                
+                // 短暂暂停以保持UI响应
+                if (batch < totalBatches - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                }
+            }
+
+            // 生成ZIP文件
+            try {
+                const content = await zip.generateAsync({ 
+                    type: "blob",
+                    compression: "DEFLATE",
+                    compressionOptions: { level: 6 }
+                });
+                
+                saveAs(content, `${fileName}.zip`);
+                setTimeout(() => {
+                    hideLoading();
+                    clearData();
+                    alert("导出完成！");
+                }, 500);
+            } catch (error) {
+                console.error("最终导出错误:", error);
+                hideLoading();
+                alert("导出失败！");
+            }
+        }
+
+        // 跳转函数
+        function navigateToBarcodePage() {
+            // 添加点击动画效果
+            const header = document.querySelector('.card-header');
+            header.style.transform = 'scale(0.95)';
+            header.style.transition = 'transform 0.2s ease';
+            
+            setTimeout(() => {
+                header.style.transform = 'scale(1)';
+                // 实际跳转逻辑
+                window.location.href = "https://www.example.com/barcode";
+            }, 200);
+        }
+
+        // 监听显示重量统计开关的变化
+        document.getElementById('show-weight-stats').addEventListener('change', function() {
+            updateWeightStatsDisplay();
+        });
+
+        // 页面加载时默认隐藏统计区域
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('weight-stats-container').style.display = 'none';
+            updateWeightOption(); // 初始化重量选项显示
+        });
+    </script>
+</body>
 </html>
